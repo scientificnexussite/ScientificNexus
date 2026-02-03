@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scientific Nexus | Research Terminal</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { 
+            --cyan: #00f2ff; 
+            --purple: #bc13fe; 
+            --dark: #050507; 
+            --panel: #0f0f13;
+            --border: rgba(255,255,255,0.08);
+            --header-h: 70px;
+            --glass: rgba(15, 15, 19, 0.95);
+            --danger: #ff4444;
+            --success: #00ff88;
+        }
+        
+        * { 
+            box-sizing: border-box; outline: none; 
+            -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+        }
+        input, textarea { user-select: text !important; -webkit-user-select: text !important; }
+
+        body { 
+            background: var(--dark); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; overflow: hidden; height: 100vh;
+        }
+
+        /* --- LAYOUT --- */
+        .app-container { display: flex; height: 100vh; position: relative; }
+        
+        /* SIDEBAR */
+        .sidebar {
+            width: 80px; background: var(--panel); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; padding-top: 20px; z-index: 100;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar.expanded { width: 240px; }
+        .nav-item {
+            width: 50px; height: 50px; border-radius: 12px; margin-bottom: 15px;
+            display: flex; align-items: center; justify-content: center;
+            color: rgba(255,255,255,0.4); cursor: pointer; transition: 0.3s; position: relative;
+        }
+        .sidebar.expanded .nav-item { width: 90%; justify-content: flex-start; padding-left: 15px; }
+        .nav-item i { font-size: 1.2rem; min-width: 30px; text-align: center; }
+        .nav-text { display: none; margin-left: 10px; font-size: 0.95rem; white-space: nowrap; }
+        .sidebar.expanded .nav-text { display: block; animation: fadeIn 0.3s forwards; }
+        .nav-item:hover, .nav-item.active { background: rgba(0, 242, 255, 0.1); color: var(--cyan); box-shadow: 0 0 15px rgba(0,242,255,0.15); }
+        .nav-item.active::before {
+            content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+            height: 60%; width: 3px; background: var(--cyan); border-radius: 0 4px 4px 0;
+        }
+
+        /* MAIN CONTENT */
+        .main-content { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Header */
+        .top-bar {
+            height: var(--header-h); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 25px;
+            background: rgba(5, 5, 7, 0.8); backdrop-filter: blur(10px);
+        }
+        .brand { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; color: white; display: flex; align-items: center; gap: 10px; }
+        .brand i { color: var(--cyan); }
+        .user-panel { display: flex; align-items: center; gap: 15px; }
+        .user-avatar { 
+            width: 35px; height: 35px; border-radius: 50%; background: linear-gradient(45deg, var(--cyan), var(--purple));
+            display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; cursor: pointer;
+        }
+
+        /* VIEWS */
+        .view-section { display: none; height: calc(100vh - var(--header-h)); overflow-y: auto; padding: 20px; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .view-section.active { display: block; }
+
+        /* GAMES GRID */
+        .game-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; 
+            padding-bottom: 80px; max-width: 1600px; margin: 0 auto;
+        }
+        .game-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+            transition: 0.3s; position: relative; cursor: pointer; height: 320px; display: flex; flex-direction: column;
+        }
+        .game-card:hover { transform: translateY(-5px); border-color: var(--cyan); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card-thumb { height: 180px; width: 100%; object-fit: cover; background: #1a1a20; }
+        .card-info { padding: 15px; flex: 1; display: flex; flex-direction: column; }
+        .card-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 5px; color: #fff; }
+        .card-cat { font-size: 0.8rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .play-btn {
+            margin-top: auto; padding: 8px 0; width: 100%; border-radius: 8px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05); color: white; cursor: pointer; transition: 0.2s;
+        }
+        .play-btn:hover { background: var(--cyan); color: black; border-color: var(--cyan); font-weight: 600; }
+
+        /* SOCIAL / CHAT */
+        .social-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: 100%; max-width: 1400px; margin: 0 auto; }
+        .friends-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+        .chat-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        .panel-header { padding: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+        .friend-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .friend-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px;
+            cursor: pointer; transition: 0.2s; border: 1px solid transparent;
+        }
+        .friend-item:hover { background: rgba(255,255,255,0.05); }
+        .friend-item.active { background: rgba(0, 242, 255, 0.05); border-color: rgba(0, 242, 255, 0.2); }
+        .f-avatar { width: 40px; height: 40px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-weight: bold; position: relative; }
+        .status-dot { width: 10px; height: 10px; background: var(--border); border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid var(--panel); }
+        .status-dot.online { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        
+        .chat-area { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.4; position: relative; }
+        .message.sent { align-self: flex-end; background: linear-gradient(135deg, var(--purple), #8a2be2); border-bottom-right-radius: 2px; }
+        .message.received { align-self: flex-start; background: rgba(255,255,255,0.1); border-bottom-left-radius: 2px; }
+        
+        .chat-input-area { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: rgba(0,0,0,0.2); }
+        .chat-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 12px; border-radius: 8px; color: white; }
+        .send-btn { width: 45px; background: var(--cyan); border: none; border-radius: 8px; cursor: pointer; color: black; transition: 0.2s; }
+        .send-btn:hover { transform: scale(1.05); }
+
+        /* MODALS */
+        .modal { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); 
+            backdrop-filter: blur(5px); z-index: 1000; display: none; align-items: center; justify-content: center;
+        }
+        .modal.active { display: flex; animation: fadeIn 0.2s; }
+        .modal-box { 
+            width: 400px; background: #15151a; border: 1px solid var(--border); border-radius: 16px; 
+            padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative;
+        }
+        .close-modal { position: absolute; top: 15px; right: 15px; cursor: pointer; color: #888; }
+        .modal h3 { margin-top: 0; color: var(--cyan); }
+        .full-btn { width: 100%; padding: 12px; background: var(--cyan); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+
+        /* GAME VIEWER (IFRAME) */
+        .game-viewer { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; 
+            background: var(--dark); display: none; flex-direction: column;
+        }
+        .game-viewer.active { display: flex; }
+        .gv-head { height: 50px; display: flex; align-items: center; padding: 0 20px; background: #111; border-bottom: 1px solid #333; }
+        .gf-wrapper { flex: 1; background: black; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
+
+        /* UTILS */
+        .loader { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 9999;
+            display: flex; align-items: center; justify-content: center; transition: opacity 0.5s;
+        }
+        .spinner { width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--cyan); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column-reverse; }
+            .sidebar { width: 100%; height: 60px; flex-direction: row; justify-content: space-around; padding: 0; border-right: none; border-top: 1px solid var(--border); }
+            .sidebar.expanded { width: 100%; height: 60px; }
+            .nav-item { margin: 0; width: auto !important; height: 100%; flex: 1; border-radius: 0; padding: 0 !important; }
+            .nav-text { display: none !important; }
+            .nav-item.active::before { width: 100%; height: 3px; top: 0; left: 0; transform: none; border-radius: 0; }
+            .social-layout { grid-template-columns: 1fr; display: block; }
+            .friends-panel { height: 40vh; margin-bottom: 10px; }
+            .chat-panel { height: 50vh; }
+        }
+        
+        /* Auth Screen */
+        #auth-screen { z-index: 5000; background: var(--dark); }
+        .auth-box { width: 320px; text-align: center; }
+        .auth-inp { width: 100%; padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white; border-radius: 8px; }
+
+    </style>
+</head>
+<body>
+
+    <div id="loader" class="loader"><div class="spinner"></div></div>
+
+    <div id="auth-screen" class="modal active" style="display: flex;">
+        <div class="modal-box auth-box">
+            <h2 style="color:var(--cyan); margin-bottom: 20px;">NEXUS TERMINAL</h2>
+            <div id="auth-forms">
+                <input type="email" id="l-email" placeholder="Email" class="auth-inp">
+                <input type="password" id="l-pass" placeholder="Password" class="auth-inp">
+                <button onclick="login()" class="full-btn">INITIALIZE SESSION</button>
+                <p style="font-size: 0.8rem; margin-top: 15px; color: #888; cursor: pointer;" onclick="toggleAuth('reg')">Create Access ID</p>
+            </div>
+            <div id="reg-forms" style="display: none;">
+                <input type="text" id="r-user" placeholder="Username (Unique ID)" class="auth-inp">
+                <input type="email" id="r-email" placeholder="Email" class="auth-inp">
+                <input type="password" id="r-pass" placeholder="Password" class="auth-inp">
+                <button onclick="register()" class="full-btn" style="background: var(--purple);">REGISTER ID</button>
+                <p style="font-size: 0.8rem; margin-top: 15px; color: #888; cursor: pointer;" onclick="toggleAuth('log')">Back to Login</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <div class="sidebar" id="sidebar">
+            <div class="nav-item active" onclick="nav('home')">
+                <i class="fas fa-grid-2"></i><span class="nav-text">Games</span>
+            </div>
+            <div class="nav-item" onclick="nav('social')">
+                <i class="fas fa-users-rays"></i><span class="nav-text">Allies</span>
+            </div>
+            <div class="nav-item" onclick="nav('profile')">
+                <i class="fas fa-id-card"></i><span class="nav-text">Identity</span>
+            </div>
+            <div style="flex:1"></div>
+            <div class="nav-item" onclick="logout()">
+                <i class="fas fa-power-off" style="color: var(--danger);"></i><span class="nav-text">Terminate</span>
+            </div>
+            <div class="nav-item" onclick="document.getElementById('sidebar').classList.toggle('expanded')">
+                <i class="fas fa-bars"></i>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="brand"><i class="fas fa-atom"></i> NEXUS</div>
+                <div class="user-panel">
+                    <div id="my-username" style="font-weight: 600; font-size: 0.9rem;">Guest</div>
+                    <div class="user-avatar" id="my-avatar">G</div>
+                </div>
+            </div>
+
+            <div id="view-home" class="view-section active">
+                <div style="max-width: 1600px; margin: 0 auto 20px;">
+                    <input type="text" id="search-input" placeholder="Search Database..." 
+                        style="width: 100%; padding: 15px; background: var(--panel); border: 1px solid var(--border); color: white; border-radius: 12px;"
+                        onkeyup="filterGames()">
+                </div>
+                <div class="game-grid" id="game-grid"></div>
+            </div>
+
+            <div id="view-social" class="view-section">
+                <div class="social-layout">
+                    <div class="friends-panel">
+                        <div class="panel-header">
+                            <span>ALLIES LINK</span>
+                            <button onclick="openAddFriend()" style="background:none; border:none; color:var(--success); cursor:pointer;"><i class="fas fa-user-plus"></i></button>
+                        </div>
+                        <div id="req-list" style="background: rgba(255,200,0,0.05);"></div> <div id="friends-list" class="friend-list"></div>
+                    </div>
+                    <div class="chat-panel">
+                        <div class="panel-header" id="chat-header">
+                            <span id="chat-with-name">Select an Ally</span>
+                            <div class="status-dot online" id="chat-status" style="position:static; display:none;"></div>
+                        </div>
+                        <div class="chat-area" id="chat-box">
+                            <div style="text-align:center; color: #555; margin-top: 50px;">
+                                <i class="fas fa-comments" style="font-size: 3rem; margin-bottom: 10px;"></i><br>
+                                Encrypted Channel Ready
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" class="chat-input" id="msg-input" placeholder="Type transmission..." onkeypress="if(event.key==='Enter') sendMsg()">
+                            <button class="send-btn" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="view-profile" class="view-section">
+                <h1>Identity Module</h1>
+                <p>User Configuration loaded.</p>
+                <p>ID: <span id="p-uid">...</span></p>
+                <p>Handle: <span id="p-name">...</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-add-friend" class="modal">
+        <div class="modal-box">
+            <i class="fas fa-times close-modal" onclick="document.getElementById('modal-add-friend').classList.remove('active')"></i>
+            <h3>ESTABLISH LINK</h3>
+            <p style="color:#888; font-size: 0.9rem; margin-bottom: 15px;">Enter the unique identifier (Username) of the target.</p>
+            <input type="text" id="af-username" placeholder="Target Username" class="auth-inp">
+            <button onclick="sendRequest()" class="full-btn">SEND LINK REQUEST</button>
+        </div>
+    </div>
+
+    <div id="game-viewer" class="game-viewer">
+        <div class="gv-head">
+            <button onclick="closeGame()" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer; margin-right:15px;"><i class="fas fa-arrow-left"></i></button>
+            <div style="flex:1">
+                <span id="gv-title" style="font-weight:bold; margin-right:10px;">Game</span>
+                <span id="gv-cat" style="font-size:0.8rem; color:var(--cyan); border:1px solid var(--border); padding:2px 6px; border-radius:4px;">ARCADE</span>
+            </div>
+            <button onclick="toggleFull()" style="background:none; border:none; color:white; cursor:pointer;"><i class="fas fa-expand"></i></button>
+        </div>
+        <div id="gf-wrapper" class="gf-wrapper">
+            <iframe id="game-frame" src=""></iframe>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, onSnapshot, updateDoc, arrayUnion, serverTimestamp, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // --- CONFIG --- (Replace with YOUR keys)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_BUCKET",
+            messagingSenderId: "YOUR_SENDER",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let currentUser = null;
+        let currentUserData = null;
+        let activeChatId = null;
+        let activeFriendUid = null;
+
+        // --- AUTH ---
+        window.toggleAuth = (mode) => {
+            document.getElementById('auth-forms').style.display = mode==='log'?'block':'none';
+            document.getElementById('reg-forms').style.display = mode==='reg'?'block':'none';
+        }
+
+        window.register = async () => {
+            const user = document.getElementById('r-user').value.toLowerCase().trim();
+            const email = document.getElementById('r-email').value;
+            const pass = document.getElementById('r-pass').value;
+            if(!user || !email || !pass) return alert("Fill all fields");
+
+            try {
+                // Check username unique
+                const userRef = doc(db, 'usernames', user);
+                const userSnap = await getDoc(userRef);
+                if(userSnap.exists()) return alert("Username taken");
+
+                const res = await createUserWithEmailAndPassword(auth, email, pass);
+                
+                // Create Profile
+                await setDoc(doc(db, 'users', res.user.uid), {
+                    uid: res.user.uid,
+                    username: user,
+                    email: email,
+                    friends: [],
+                    createdAt: serverTimestamp()
+                });
+                
+                // Reserve Username
+                await setDoc(doc(db, 'usernames', user), { uid: res.user.uid });
+
+                alert("ID Created. Logging in...");
+            } catch(e) { alert(e.message); }
+        }
+
+        window.login = async () => {
+            const email = document.getElementById('l-email').value;
+            const pass = document.getElementById('l-pass').value;
+            try { await signInWithEmailAndPassword(auth, email, pass); } 
+            catch(e) { alert("Access Denied: " + e.message); }
+        }
+
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, async (user) => {
+            if(user) {
+                currentUser = user;
+                document.getElementById('auth-screen').style.display = 'none';
+                
+                // Realtime Profile Listener
+                onSnapshot(doc(db, 'users', user.uid), (doc) => {
+                    currentUserData = doc.data();
+                    updateUI(currentUserData);
+                    loadFriends();
+                });
+
+                // Requests Listener
+                const q = query(collection(db, 'friend_requests'), where('toUid', '==', user.uid));
+                onSnapshot(q, (snapshot) => {
+                    const reqList = document.getElementById('req-list');
+                    reqList.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'friend-item';
+                        div.style.background = 'rgba(255,200,0,0.1)';
+                        div.innerHTML = `
+                            <div class="f-avatar"><i class="fas fa-question"></i></div>
+                            <div style="flex:1">
+                                <div style="font-weight:bold">${d.fromName}</div>
+                                <div style="font-size:0.7rem">Requesting Link</div>
+                            </div>
+                            <button onclick="acceptRequest('${doc.id}', '${d.fromUid}')" style="background:var(--success); border:none; border-radius:4px; padding:5px; cursor:pointer; margin-right:5px;"><i class="fas fa-check"></i></button>
+                            <button onclick="rejectRequest('${doc.id}')" style="background:var(--danger); border:none; border-radius:4px; padding:5px; cursor:pointer;"><i class="fas fa-times"></i></button>
+                        `;
+                        reqList.appendChild(div);
+                    });
+                });
+
+            } else {
+                currentUser = null;
+                document.getElementById('auth-screen').style.display = 'flex';
+            }
+        });
+
+        function updateUI(data) {
+            document.getElementById('my-username').innerText = data.username.toUpperCase();
+            document.getElementById('my-avatar').innerText = data.username[0].toUpperCase();
+            document.getElementById('p-uid').innerText = data.uid;
+            document.getElementById('p-name').innerText = data.username;
+        }
+
+        // --- SOCIAL LOGIC UPDATED FOR FIXES ---
+
+        window.openAddFriend = () => {
+            document.getElementById('modal-add-friend').classList.add('active');
+        }
+
+        // FIX: Replaced slow query with DIRECT doc lookup (Optimized Speed)
+        window.sendRequest = async () => {
+            const targetUsername = document.getElementById('af-username').value.toLowerCase().trim();
+            if(!targetUsername) return;
+            if(targetUsername === currentUserData.username) return alert("Cannot link to self.");
+
+            try {
+                // Direct lookup (Instant)
+                const userRef = doc(db, 'usernames', targetUsername);
+                const userSnap = await getDoc(userRef);
+
+                if(!userSnap.exists()) return alert("User not found in registry.");
+                
+                const targetUid = userSnap.data().uid;
+
+                // Check if already friends
+                if(currentUserData.friends && currentUserData.friends.includes(targetUid)) {
+                    return alert("Already allied.");
+                }
+
+                // Send Request
+                await addDoc(collection(db, 'friend_requests'), {
+                    fromUid: currentUser.uid,
+                    fromName: currentUserData.username,
+                    toUid: targetUid,
+                    status: 'pending',
+                    timestamp: serverTimestamp()
+                });
+
+                document.getElementById('modal-add-friend').classList.remove('active');
+                alert("Request transmitted.");
+            } catch(e) {
+                console.error(e);
+                alert("Transmission failed.");
+            }
+        }
+
+        // FIX: Added Bi-directional Update (Fixes Sync Issue)
+        window.acceptRequest = async (reqId, fromUid) => {
+            try {
+                // 1. Add them to MY friends list
+                await updateDoc(doc(db, 'users', currentUser.uid), {
+                    friends: arrayUnion(fromUid)
+                });
+
+                // 2. Add ME to THEIR friends list (This ensures instant visibility for them too)
+                await updateDoc(doc(db, 'users', fromUid), {
+                    friends: arrayUnion(currentUser.uid)
+                });
+
+                // 3. Delete Request
+                await deleteDoc(doc(db, 'friend_requests', reqId));
+                
+            } catch(e) {
+                console.error(e);
+                alert("Link establishment failed: " + e.message);
+            }
+        }
+
+        window.rejectRequest = async (reqId) => {
+            await deleteDoc(doc(db, 'friend_requests', reqId));
+        }
+
+        // FIX: Added 'Set' to remove duplicates (Fixes "Police" bug)
+        async function loadFriends() {
+            const list = document.getElementById('friends-list');
+            list.innerHTML = '';
+            
+            if(!currentUserData.friends || currentUserData.friends.length === 0) {
+                list.innerHTML = '<div style="padding:20px; color:#555; text-align:center">No allies linked.</div>';
+                return;
+            }
+
+            // DEDUPLICATION: This line fixes the duplicate "Police" bug
+            const uniqueFriends = [...new Set(currentUserData.friends)];
+
+            for(const friendUid of uniqueFriends) {
+                const fDoc = await getDoc(doc(db, 'users', friendUid));
+                if(fDoc.exists()) {
+                    const fData = fDoc.data();
+                    const el = document.createElement('div');
+                    el.className = `friend-item ${activeFriendUid === fData.uid ? 'active' : ''}`;
+                    el.onclick = () => openChat(fData);
+                    el.innerHTML = `
+                        <div class="f-avatar">
+                            ${fData.username[0].toUpperCase()}
+                            <div class="status-dot"></div>
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-weight:600">${fData.username}</div>
+                            <div style="font-size:0.7rem; color:#888;">Linked</div>
+                        </div>
+                    `;
+                    list.appendChild(el);
+                }
+            }
+        }
+
+        window.openChat = async (friendData) => {
+            activeFriendUid = friendData.uid;
+            document.getElementById('chat-with-name').innerText = friendData.username.toUpperCase();
+            document.getElementById('chat-status').style.display = 'block';
+            
+            loadFriends(); // Refresh highlight
+
+            const ids = [currentUser.uid, friendData.uid].sort();
+            activeChatId = ids[0] + "_" + ids[1];
+
+            const q = query(collection(db, 'chats', activeChatId, 'messages'), orderBy('timestamp', 'asc'));
+            onSnapshot(q, (snap) => {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = '';
+                snap.forEach(d => {
+                    const msg = d.data();
+                    const div = document.createElement('div');
+                    div.className = `message ${msg.sender === currentUser.uid ? 'sent' : 'received'}`;
+                    div.innerText = msg.text;
+                    box.appendChild(div);
+                });
+                box.scrollTop = box.scrollHeight;
+            });
+        }
+
+        window.sendMsg = async () => {
+            const inp = document.getElementById('msg-input');
+            const txt = inp.value.trim();
+            if(!txt || !activeChatId) return;
+
+            inp.value = '';
+            await addDoc(collection(db, 'chats', activeChatId, 'messages'), {
+                text: txt,
+                sender: currentUser.uid,
+                timestamp: serverTimestamp()
+            });
+            
+            await setDoc(doc(db, 'chats', activeChatId), {
+                participants: [currentUser.uid, activeFriendUid],
+                lastUpdated: serverTimestamp()
+            }, { merge: true });
+        }
+
+        // --- NAVIGATION & GAMES ---
+        window.nav = (page) => {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-'+page).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        const gameData = [
+            { title: "Neon Racer", cat: "Racing", img: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=500&q=60", url: "https://scratch.mit.edu/projects/embed/418386348/?autostart=false" },
+            { title: "Cyber Puzzle", cat: "Logic", img: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=500&q=60", url: "https://scratch.mit.edu/projects/embed/10128431/?autostart=false" },
+            { title: "Space Defender", cat: "Action", img: "https://images.unsplash.com/photo-1614713555616-9da98637f61d?auto=format&fit=crop&w=500&q=60", url: "https://scratch.mit.edu/projects/embed/116568469/?autostart=false" },
+            { title: "Quantum Chess", cat: "Strategy", img: "https://images.unsplash.com/photo-1586165368502-1bad197a6461?auto=format&fit=crop&w=500&q=60", url: "https://scratch.mit.edu/projects/embed/159266859/?autostart=false" }
+        ];
+
+        function createCard(g) {
+            const card = document.createElement('div');
+            card.className = 'game-card hidden';
+            card.innerHTML = `
+                <img src="${g.img}" class="card-thumb" loading="lazy">
+                <div class="card-info">
+                    <div class="card-cat">${g.cat}</div>
+                    <div class="card-title">${g.title}</div>
+                    <button class="play-btn" onclick="openGame('${g.url}', '${g.title}', '${g.cat}')">INITIALIZE</button>
+                </div>
+            `;
+            return card;
+        }
+
+        const grid = document.getElementById('game-grid');
+        gameData.forEach(g => grid.appendChild(createCard(g)));
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.remove('hidden');
+                    entry.target.style.animation = 'slideUp 0.5s forwards';
+                }
+            });
+        });
+        function observeElements() {
+            document.querySelectorAll('.game-card').forEach(el => observer.observe(el));
+        }
+        observeElements();
+
+        window.filterGames = () => {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const grid = document.getElementById('game-grid'); grid.innerHTML = '';
+            gameData.filter(g => g.title.toLowerCase().includes(q)).forEach(g => grid.appendChild(createCard(g)));
+            observeElements();
+        }
+        window.openGame = (url, title, cat) => {
+            const gv = document.getElementById('game-viewer');
+            gv.style.display = 'block'; setTimeout(() => gv.classList.add('active'), 10);
+            document.getElementById('game-frame').src = url;
+            document.getElementById('gv-title').innerText = title;
+            document.getElementById('gv-cat').innerText = cat;
+        }
+        window.closeGame = () => {
+            const gv = document.getElementById('game-viewer'); gv.classList.remove('active');
+            setTimeout(() => { gv.style.display = 'none'; document.getElementById('game-frame').src = ""; }, 300);
+        }
+        window.toggleFull = () => {
+            const el = document.getElementById('gf-wrapper');
+            !document.fullscreenElement ? el.requestFullscreen().catch(e=>console.log(e)) : document.exitFullscreen();
+        }
+        
+        window.onload = () => { 
+            document.getElementById('loader').style.opacity = '0'; 
+            setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+        }
+
+    </script>
+</body>
+</html>
